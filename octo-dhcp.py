@@ -1,6 +1,4 @@
-import eventlet
-eventlet.monkey_patch()
-import Queue
+from multiprocessing import Process, Queue
 import sys
 import time
 
@@ -24,15 +22,14 @@ def setup_logging():
 
 def main():
     setup_logging()
-    config_update_queue = Queue.Queue()
+    config_states = Queue()
     fpath = sys.argv[1]
-    pool = eventlet.GreenPool()
-    pool.spawn_n(configurator.config_watcher, fpath, config_update_queue)
-    config = configurator.ConfigStore()
-    pool.spawn_n(config.dict_parser, config_update_queue)
-    pool.spawn_n(packetgen.run_from_config, config)
-    pool.waitall()
-
+    cproc = Process(target=configurator.config_watcher,
+                    args=(fpath, config_states))
+    pproc = Process(target=packetgen.run_from_queue,
+                    args=(config_states,))
+    cproc.start()
+    pproc.start()
 
 if __name__ == '__main__':
     main()
